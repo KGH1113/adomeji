@@ -1652,15 +1652,11 @@ namespace Adomeji.Pets.Actors
             int frame = 0;
             if (_state != State.Stand && count > 1)
             {
-                int tick = (int)(_animClock * fps);
-                if (pose == Pose.Walk && _art.PingPongWalk && count > 2)
-                {
-                    // 0 1 2 3 4 3 2 1 | 0 1 2 ... — endpoints not doubled
-                    int cycle = count * 2 - 2;
-                    int k = tick % cycle;
-                    frame = k < count ? k : cycle - k;
-                }
-                else frame = tick % count;
+                // a wave is a hand going back and forth, never a jump from the
+                // last frame back to the first; walk ping-pongs when the pack
+                // asks for it
+                bool pingPong = pose == Pose.Wave || (pose == Pose.Walk && _art.PingPongWalk);
+                frame = FrameSequence.At((int)(_animClock * fps), count, pingPong);
             }
             int key = ((int)pose << 8) | frame;
             _view.ApplySprite(key, _art.Get(pose, frame));

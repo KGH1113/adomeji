@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Xml.Serialization;
 using Adomeji.Gameplay.Events;
 using Adomeji.Pets.Physics;
+using Adomeji.Pets.Rendering;
 using Adomeji.Pets.Runtime;
 using Adomeji.Settings;
 using Adomeji.Shared.Diagnostics;
@@ -28,6 +31,8 @@ internal static class Program
       TestActionsXml();
       TestSpriteRoles();
       TestSettingsNormalization();
+      TestSettingsReload();
+      TestFrameSequence();
       TestPortalMath();
       TestHullTop();
       TestSweptCollision();
@@ -110,6 +115,67 @@ internal static class Program
     Equal(1f, settings.PackWeights[0], "invalid weight repaired");
     Equal("FF6B52", settings.AccentHex, "default accent");
     Equal("F8", settings.ToggleKey, "default hotkey");
+  }
+
+  // UMM loads and saves settings with XmlSerializer, once per game launch.
+  private static void TestSettingsReload()
+  {
+    AdomejiSettings Relaunch(AdomejiSettings saved)
+    {
+      var serializer = new XmlSerializer(typeof(AdomejiSettings));
+      var file = new StringWriter();
+      serializer.Serialize(file, saved);
+      var loaded = (AdomejiSettings)serializer.Deserialize(new StringReader(file.ToString()));
+      loaded.Normalize();
+      return loaded;
+    }
+
+    var settings = new AdomejiSettings();
+    settings.Normalize();
+    for (int launch = 0; launch < 3; launch++) settings = Relaunch(settings);
+    Equal(1, settings.SpritePacks.Count, "default pack is not added again on each launch");
+    Equal(1, settings.PackWeights.Count, "default weight is not added again on each launch");
+
+    settings = new AdomejiSettings { SpritePacks = { "Other" }, PackWeights = { 2f } };
+    settings.Normalize();
+    for (int launch = 0; launch < 3; launch++) settings = Relaunch(settings);
+    Equal("Other", string.Join(",", settings.SpritePacks), "a removed default pack stays removed");
+    Equal(2f, settings.PackWeights[0], "weight survives relaunch");
+
+    // [Other, ELLIE] at [2, 5], after two launches of the old build
+    var broken = new AdomejiSettings
+    {
+      SpritePacks = { "ELLIE", "ELLIE", "Other", "ELLIE" },
+      PackWeights = { 1f, 1f, 2f, 5f },
+    };
+    broken.Normalize();
+    Equal("Other,ELLIE", string.Join(",", broken.SpritePacks), "repeated packs keep their last entry");
+    Equal("2,5", string.Join(",", broken.PackWeights), "repaired packs keep their own weights");
+
+    var blanks = new AdomejiSettings
+    {
+      SpritePacks = { "A", "", "B" },
+      PackWeights = { 3f, 9f, 4f },
+    };
+    blanks.Normalize();
+    Equal("A,B", string.Join(",", blanks.SpritePacks), "blank packs dropped");
+    Equal("3,4", string.Join(",", blanks.PackWeights), "weights stay beside their packs");
+  }
+
+  private static void TestFrameSequence()
+  {
+    string Frames(int count, bool pingPong, int ticks)
+    {
+      var frames = new List<string>();
+      for (int tick = 0; tick < ticks; tick++) frames.Add(FrameSequence.At(tick, count, pingPong).ToString());
+      return string.Join(" ", frames);
+    }
+
+    Equal("0 1 2 1 0 1 2 1 0", Frames(3, true, 9), "wave ping-pongs without doubled ends");
+    Equal("0 1 2 0 1 2", Frames(3, false, 6), "loop restarts");
+    Equal("0 1 2 3 4 3 2 1 0", Frames(5, true, 9), "five-frame ping-pong");
+    Equal("0 1 0 1", Frames(2, true, 4), "two frames alternate");
+    Equal("0 0", Frames(1, true, 2), "single frame");
   }
 
   private static void TestSpriteRoles()
