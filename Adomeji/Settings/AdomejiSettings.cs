@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Adomeji.Sprites.Loading;
 using UnityModManagerNet;
@@ -18,8 +19,11 @@ public sealed class AdomejiSettings : UnityModManager.ModSettings
   public float FallSteerScale = 1f;
   public bool AllowDrag = true;
   public bool OptimizedMode;
-  public List<string> SpritePacks = new List<string> { PlaceholderArt.DefaultPack };
-  public List<float> PackWeights = new List<float> { 1f };
+  // Start empty: UMM loads settings with XmlSerializer, which appends the
+  // saved entries to whatever the field already holds. Normalize adds the
+  // default pack when nothing is selected.
+  public List<string> SpritePacks = new List<string>();
+  public List<float> PackWeights = new List<float>();
   public bool FilterPets = true;
   public bool SwallowMouse = true;
   public bool NoFloor;
@@ -52,16 +56,46 @@ public sealed class AdomejiSettings : UnityModManager.ModSettings
     AccentHex = string.IsNullOrWhiteSpace(AccentHex) ? "FF6B52" : AccentHex;
     ToggleKey = string.IsNullOrWhiteSpace(ToggleKey) ? "F8" : ToggleKey;
 
-    if (SpritePacks == null)
-      SpritePacks = new List<string>();
-
-    SpritePacks.RemoveAll(string.IsNullOrWhiteSpace);
-    if (SpritePacks.Count == 0)
-      SpritePacks.Add(PlaceholderArt.DefaultPack);
-
-    SyncPackWeights();
+    NormalizePacks();
     WrapCeiling = WrapFloor;
     SchemaVersion = CurrentSchemaVersion;
+  }
+
+  // One entry per pack, each beside its own weight. Up to 0.1.1 the default
+  // pack was added in front of the saved list on every launch, so a pack
+  // listed more than once keeps its last entry and that entry's weight: the
+  // earlier copies are the added ones.
+  private void NormalizePacks()
+  {
+    SpritePacks ??= new List<string>();
+    PackWeights ??= new List<float>();
+
+    var seen = new HashSet<string>(StringComparer.Ordinal);
+    var packs = new List<string>(SpritePacks.Count);
+    var weights = new List<float>(SpritePacks.Count);
+    for (int index = SpritePacks.Count - 1; index >= 0; index--)
+    {
+      string pack = SpritePacks[index];
+      if (string.IsNullOrWhiteSpace(pack) || !seen.Add(pack))
+        continue;
+      packs.Add(pack);
+      weights.Add(index < PackWeights.Count ? PackWeights[index] : 1f);
+    }
+    packs.Reverse();
+    weights.Reverse();
+
+    if (packs.Count == 0)
+    {
+      packs.Add(PlaceholderArt.DefaultPack);
+      weights.Add(1f);
+    }
+
+    // in place: the settings UI holds these lists
+    SpritePacks.Clear();
+    SpritePacks.AddRange(packs);
+    PackWeights.Clear();
+    PackWeights.AddRange(weights);
+    SyncPackWeights();
   }
 
   public void SyncPackWeights()
