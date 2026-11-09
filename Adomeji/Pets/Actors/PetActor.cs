@@ -130,9 +130,10 @@ namespace Adomeji.Pets.Actors
 
             RefreshSharedSize(); // spawning outside the manager's frame loop
             float half = Size() * 0.5f;
+            float w = Surfaces.SpaceWidth, h = Surfaces.SpaceHeight;
             _pos = new Vector2(
-                Random.Range(half + 20f, Screen.width - half - 20f),
-                Random.Range(Screen.height * 0.4f, Screen.height * 0.8f));
+                Random.Range(half + 20f, w - half - 20f),
+                Random.Range(h * 0.4f, h * 0.8f));
             _dir = Random.value < 0.5f ? -1 : 1;
             _animClock = Random.Range(0f, 1f); // desync anim across the flock
             _decisionTimer = Random.Range(2f, 5f);
@@ -711,7 +712,7 @@ namespace Adomeji.Pets.Actors
         private void StartClimb(int side, float half)
         {
             _climbSide = side;
-            _pos.x = side < 0 ? half : Screen.width - half;
+            _pos.x = side < 0 ? half : Surfaces.SpaceWidth - half;
             _vel = Vector2.zero;
             // fresh timer: Walk's is held at <= 0 for as long as the pet is
             // panicking, and inheriting that drops it off the wall instantly
@@ -1591,6 +1592,26 @@ namespace Adomeji.Pets.Actors
             if (!Grabbable) return false;
             float half = GrabHalf;
             return Mathf.Abs(p.x - _pos.x) < half && Mathf.Abs(p.y - _pos.y) < half;
+        }
+
+        // Dropped on the spot, without a throw: the mouse was taken away (a
+        // render captures the pets) rather than released.
+        public void LetGo()
+        {
+            if (_state != State.Dragged) return;
+            _vel = Vector2.zero;
+            _rotation = 0f;
+            SetState(State.Fall);
+        }
+
+        // The space pets live in changed size: keep this pet at the same place
+        // relative to the screen. Riders follow their ride; the walking offset
+        // along it scales with the camera's pixels per unit, i.e. the height.
+        public void RescaleSpace(float sx, float sy)
+        {
+            _pos = new Vector2(_pos.x * sx, _pos.y * sy);
+            _vel = new Vector2(_vel.x * sx, _vel.y * sy);
+            _rideOffset *= sy;
         }
 
         public void StartDrag(Vector2 mouse)

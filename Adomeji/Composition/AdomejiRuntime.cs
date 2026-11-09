@@ -1,6 +1,8 @@
 using System;
 using Adomeji.Gameplay.Events;
 using Adomeji.Gameplay.Patches;
+using Adomeji.Integrations.TUFReplay;
+using Adomeji.Pets.Rendering;
 using Adomeji.Pets.Runtime;
 using Adomeji.Settings;
 using Adomeji.Sprites.Catalog;
@@ -17,6 +19,8 @@ internal sealed class AdomejiRuntime : IDisposable
 {
   private readonly IModLogger _logger;
   private readonly IPetRuntime _pets;
+  private readonly PetClock _clock;
+  private readonly TUFReplayBridge _tufReplay;
   private readonly GameplayPatchInstaller _patches;
   private readonly ISettingsStore _settings;
   private readonly ISettingsWindow _settingsWindow;
@@ -27,6 +31,8 @@ internal sealed class AdomejiRuntime : IDisposable
   private AdomejiRuntime(
     IModLogger logger,
     IPetRuntime pets,
+    PetClock clock,
+    TUFReplayBridge tufReplay,
     GameplayPatchInstaller patches,
     ISettingsStore settings,
     ISettingsWindow settingsWindow
@@ -34,6 +40,8 @@ internal sealed class AdomejiRuntime : IDisposable
   {
     _logger = logger;
     _pets = pets;
+    _clock = clock;
+    _tufReplay = tufReplay;
     _patches = patches;
     _settings = settings;
     _settingsWindow = settingsWindow;
@@ -49,6 +57,8 @@ internal sealed class AdomejiRuntime : IDisposable
     ISettingsStore settings = SettingsStore.Load(modEntry);
     IPetRuntime pets = new PetRuntime(logger);
     IGameplayEventSink events = new GameplayEventSink(pets);
+    var clock = new PetClock();
+    var tufReplay = new TUFReplayBridge(clock, new PetFlockVideoCapture(), logger);
 
     var patches = new GameplayPatchInstaller(events, logger);
     RuntimeContext.Initialize(settings, logger, modEntry.Path, modEntry.Info.Version.ToString());
@@ -64,7 +74,7 @@ internal sealed class AdomejiRuntime : IDisposable
       updatePreferences,
       new UnityKeyInput());
 
-    return new AdomejiRuntime(logger, pets, patches, settings, settingsWindow);
+    return new AdomejiRuntime(logger, pets, clock, tufReplay, patches, settings, settingsWindow);
   }
 
   public void Tick(float deltaTime)
@@ -72,7 +82,8 @@ internal sealed class AdomejiRuntime : IDisposable
     if (!_enabled || _disposed)
       return;
 
-    _pets.Tick(deltaTime);
+    if (_clock.TryAdvance(deltaTime, out float petSeconds))
+      _pets.Tick(petSeconds);
     _settingsWindow.Tick();
   }
 
@@ -108,6 +119,7 @@ internal sealed class AdomejiRuntime : IDisposable
     try
     {
       _pets.Start();
+      _tufReplay.Connect();
       _enabled = true;
       _logger.Info("Adomeji enabled.");
     }
@@ -126,6 +138,7 @@ internal sealed class AdomejiRuntime : IDisposable
     _enabled = false;
 
     _patches.Uninstall();
+    _tufReplay.Disconnect();
     _pets.Stop();
     _settingsWindow.Hide();
     _settings.Save();
@@ -141,6 +154,7 @@ internal sealed class AdomejiRuntime : IDisposable
     Disable();
 
     _patches.Dispose();
+    _tufReplay.Dispose();
     _pets.Dispose();
     _settingsWindow.Dispose();
     RuntimeContext.Clear();

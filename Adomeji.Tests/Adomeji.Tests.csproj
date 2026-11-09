@@ -24,6 +24,7 @@
     <Compile Include="../Adomeji/Pets/Runtime/IPetFlock.cs" Link="Source/IPetFlock.cs" />
     <Compile Include="../Adomeji/Pets/Runtime/PetRuntime.cs" Link="Source/PetRuntime.cs" />
     <Compile Include="../Adomeji/Pets/Runtime/SimulationFrameDelta.cs" Link="Source/SimulationFrameDelta.cs" />
+    <Compile Include="../Adomeji/Pets/Runtime/PetClock.cs" Link="Source/PetClock.cs" />
     <Compile Include="../Adomeji/UI/Input/IKeyInput.cs" Link="Source/IKeyInput.cs" />
     <Compile Include="../Adomeji/UI/Input/SettingsHotkeyController.cs" Link="Source/SettingsHotkeyController.cs" />
     <Compile Include="../Adomeji/UI/SettingsWindowLifecycle.cs" Link="Source/SettingsWindowLifecycle.cs" />

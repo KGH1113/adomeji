@@ -14,6 +14,8 @@ internal sealed class PetSurfaceQuery : IPetSurfaceQuery
   public float ZoomFactor => PetFlockController.ZoomFactor;
   public float PixelsPerUnit => PetFlockController.PixelsPerUnit;
   public float DisplayScaleX => PetFlockController.DisplayScaleX;
+  public float SpaceWidth => PetFlockController.SpaceWidth;
+  public float SpaceHeight => PetFlockController.SpaceHeight;
   public float DisplayMapX(float x, float anchorX) => PetFlockController.DisplayMapX(x, anchorX);
   public float DisplayMapY(float y, float anchorY) => PetFlockController.DisplayMapY(y, anchorY);
   public Camera GameCamera() => PetFlockController.GameCamera();

@@ -13,7 +13,7 @@ done < <(find "$ADOMEJI_PROJECT_ROOT/scripts" -type f -name '*.sh' | sort)
 
 if command -v shellcheck >/dev/null 2>&1; then
   while IFS= read -r script; do
-    shellcheck -x "$script"
+    shellcheck -x --source-path=SCRIPTDIR "$script"
   done < <(find "$ADOMEJI_PROJECT_ROOT/scripts" -type f -name '*.sh' | sort)
 else
   printf 'shellcheck is not installed; syntax validation only.\n'

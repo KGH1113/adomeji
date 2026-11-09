@@ -302,6 +302,63 @@ namespace Adomeji.Pets.Surfaces
             _canvasOnCamera = want;
         }
 
+        // ---- TUFReplay video capture ----
+        // While a TUFReplay render draws the pet canvas into its video, the
+        // renderer owns the canvas: it re-homes it on its own HUD camera, after
+        // the level's filters, and restores it afterwards. Pets then live in the
+        // video's pixel space rather than the window's, and the mouse can't
+        // reach them.
+        private bool _videoCapture;
+        private Vector2 _videoSize;
+
+        // The pixel space pets live in: the game window, or the video while a
+        // render captures the pets.
+        public static float SpaceWidth =>
+            Instance != null && Instance._videoCapture ? Instance._videoSize.x : Screen.width;
+        public static float SpaceHeight =>
+            Instance != null && Instance._videoCapture ? Instance._videoSize.y : Screen.height;
+
+        public static Canvas BeginVideoCapture(int width, int height)
+        {
+            var flock = Instance;
+            if (flock == null) return null;
+
+            var window = new Vector2(Screen.width, Screen.height);
+            var video = new Vector2(width > 0 ? width : window.x, height > 0 ? height : window.y);
+            if (!flock._videoCapture)
+            {
+                foreach (var pet in flock._pets)
+                    if (pet != null) pet.LetGo();
+                flock.RescalePets(window, video);
+            }
+            else flock.RescalePets(flock._videoSize, video);
+
+            flock._videoCapture = true;
+            flock._videoSize = video;
+            flock._canvasOnCamera = false;
+            flock._mouseDownLatch = false;
+            GameplayPatchBridge.SuppressGameMouse = false;
+            return flock._canvas;
+        }
+
+        public static void EndVideoCapture()
+        {
+            var flock = Instance;
+            if (flock == null || !flock._videoCapture) return;
+            flock._videoCapture = false;
+            flock.RescalePets(flock._videoSize, new Vector2(Screen.width, Screen.height));
+        }
+
+        // Keep every pet at the same place relative to the screen when the
+        // space changes size, instead of pinning it to the new edge.
+        private void RescalePets(Vector2 from, Vector2 to)
+        {
+            if (from.x <= 0f || from.y <= 0f || to.x <= 0f || to.y <= 0f || from == to) return;
+            float sx = to.x / from.x, sy = to.y / from.y;
+            foreach (var pet in _pets)
+                if (pet != null) pet.RescaleSpace(sx, sy);
+        }
+
         // true only when the mode is on AND there are tiles to land on;
         // menus and empty scenes quietly behave like normal mode
         public static bool NoFloorActive { get; private set; }
@@ -404,7 +461,9 @@ namespace Adomeji.Pets.Surfaces
                 else { var o = GetComponent<HitboxOverlay>(); if (o != null) Destroy(o); }
             }
 
-            _mouseDownLatch |= Input.GetMouseButtonDown(0);
+            // the cursor lives in the window, not in a render's video
+            bool pointer = !_videoCapture;
+            if (pointer) _mouseDownLatch |= Input.GetMouseButtonDown(0);
 
             float dt = Mathf.Min(frameDeltaTime, 0.05f);
             if (RuntimeContext.Settings.OptimizedMode)
@@ -434,8 +493,8 @@ namespace Adomeji.Pets.Surfaces
             // read shared frame data once, not once per pet
             float w = _scrW;
             float h = _scrH;
-            Vector2 mouse = Input.mousePosition;
-            bool mouseHeld = Input.GetMouseButton(0);
+            Vector2 mouse = pointer ? (Vector2)Input.mousePosition : Vector2.zero;
+            bool mouseHeld = pointer && Input.GetMouseButton(0);
             bool mouseDown = _mouseDownLatch;
             _mouseDownLatch = false;
 
@@ -788,12 +847,12 @@ namespace Adomeji.Pets.Surfaces
             _decoCount = 0;
             _planetMoverCount = 0;
             _floorSlots.Clear();
-            _scrW = Screen.width;
-            _scrH = Screen.height;
+            _scrW = _videoCapture ? _videoSize.x : Screen.width;
+            _scrH = _videoCapture ? _videoSize.y : Screen.height;
 
             _cam = null;
             var cam = GameCamera();
-            ApplyCanvasMode(cam);
+            if (!_videoCapture) ApplyCanvasMode(cam);
             if (cam == null) return;
             _cam = cam;
             SetupProjection(cam);
