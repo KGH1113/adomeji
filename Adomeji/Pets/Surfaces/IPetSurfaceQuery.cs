@@ -11,6 +11,8 @@ internal interface IPetSurfaceQuery
   float ZoomFactor { get; }
   float PixelsPerUnit { get; }
   float DisplayScaleX { get; }
+  float SpaceWidth { get; }
+  float SpaceHeight { get; }
 
   float DisplayMapX(float x, float anchorX);
   float DisplayMapY(float y, float anchorY);

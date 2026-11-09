@@ -33,6 +33,7 @@ internal static class Program
       TestSweptCollision();
       TestPetRuntimeLifecycle();
       TestSimulationFrameDelta();
+      TestPetClock();
       TestSettingsHotkeys();
       TestSettingsWindowLifecycle();
       Console.WriteLine($"Adomeji.Tests: {_tests} assertions passed.");
@@ -186,6 +187,46 @@ internal static class Program
       "invalid frame deltas are rejected");
   }
 
+  private static void TestPetClock()
+  {
+    var clock = new PetClock();
+    True(clock.TryAdvance(0.016f, out float seconds), "real time advances outside renders");
+    Equal(0.016f, seconds, "real time is used outside renders");
+
+    clock.SetVideoTime(5000000);
+    False(clock.FollowsVideo, "video time is ignored outside renders");
+
+    clock.BeginRender();
+    True(clock.TryAdvance(0.02f, out seconds), "real time until the render's clock starts");
+    Equal(0.02f, seconds, "level loading keeps real time");
+
+    clock.SetVideoTime(1000000);
+    True(clock.FollowsVideo, "first video tick starts the video clock");
+    False(clock.TryAdvance(0.25f, out seconds), "first video frame does not advance");
+
+    clock.SetVideoTime(1166667);
+    clock.SetVideoTime(1166667);
+    True(clock.TryAdvance(0.25f, out seconds), "video frame advances pets");
+    Near(1f / 60f, seconds, "pets advance by video time, not real time");
+    False(clock.TryAdvance(0.25f, out seconds), "repeated video time skips the frame");
+
+    clock.SetVideoTime(1000000);
+    False(clock.TryAdvance(0.25f, out seconds), "video time never goes back");
+
+    clock.SetVideoTime(1500000);
+    clock.SetVideoTime(1833333);
+    True(clock.TryAdvance(0.25f, out seconds), "frames missed by the tick are caught up");
+    Near(1f / 15f, seconds, "caught-up time is the whole video span");
+
+    clock.EndRender();
+    False(clock.FollowsVideo, "render end returns to real time");
+    True(clock.TryAdvance(0.016f, out seconds), "real time after the render");
+    Equal(0.016f, seconds, "real time is used after the render");
+
+    clock.BeginRender();
+    False(clock.FollowsVideo, "a new render waits for its own clock");
+  }
+
   private static void TestSettingsHotkeys()
   {
     var settings = new AdomejiSettings { ToggleKey = "F8" };
@@ -257,6 +298,13 @@ internal static class Program
   }
 
   private static void False(bool value, string name) => True(!value, name);
+
+  private static void Near(float expected, float actual, string name)
+  {
+    _tests++;
+    if (Math.Abs(expected - actual) > 0.0001f)
+      throw new InvalidOperationException($"FAILED: {name}; expected={expected}, actual={actual}");
+  }
 
   private static void Equal<T>(T expected, T actual, string name)
   {

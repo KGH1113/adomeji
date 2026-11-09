@@ -15,6 +15,20 @@ Adomeji is a desktop pet mod for A Dance of Fire and Ice. Pets move around the g
 - Shimeji-ee sprite packs, `actions.xml`, and `sprite-roles.txt` support
 - Component-based in-game settings UI
 - Versioned runtime with verified automatic updates and rollback
+- [TUFReplay](https://tufreplay.impl1113.dev) support: pets show up in rendered replay videos and move at the video's speed
+
+## TUFReplay
+
+Adomeji works with TUFReplay without any setup. Neither mod needs the other.
+
+- **In-game replays**: pets react to the replayed judgements, clears and deaths, as in normal play.
+- **Videos rendered from a TUFReplay recording** (with OrbitRender):
+  - Pets are in the video.
+  - They move at the video's speed, although the game renders slower than real time.
+  - They fit the video's resolution, keeping their place on screen.
+  - They can't be dragged while the video renders.
+
+`Adomeji/Integrations/TUFReplay` registers with TUFReplay's `ReplayApi`. It finds that API by name and has no reference to `TUFReplay.dll`.
 
 ## Requirements
 
